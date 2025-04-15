@@ -314,6 +314,160 @@ siggenesQ4.1.1
 names(siggenesQ4.1.1) <- sig_genes_Q4.1_df.1$ENSEMBL
 names(siggenesQ4.1.1)
 
+###----------------- Now perform compareCluster analysis
+
+library(clusterProfiler)
+
+cp.input.gsea <- list("Q2 vs. Q1"=genelist_entrezid.Q2.1,
+                      "Q3 vs. Q1"=genelist_entrezid.Q3.1,
+                      "Q4 vs. Q1"=genelist_entrezid.Q4.1)
+str(cp.input.gsea)
+
+
+library(msigdbr)
+m_df <- msigdbr(species = "Homo sapiens")
+print(msigdbr_collections(), n = 25)
+
+c2t2g <- msigdbr(species = "human", category = "C2", subcategory = "CP:REACTOME") %>%
+  dplyr::select(gs_name, ensembl_gene)
+head(c2t2g)
+
+formula_res <- compareCluster(geneClusters=cp.input.gsea, 
+                              fun="GSEA",
+                              eps = 0,
+                              TERM2GENE= c2t2g,
+                              pvalueCutoff = 0.05,
+                              pAdjustMethod = "BH", 
+                              minGSSize = 10, 
+                              maxGSSize = 1500)
+
+
+dotplot(formula_res, showCategory = 20, font.size = 6) + facet_grid(.~.sign)
+
+
+
+
+###pathways to subset
+reac_sub <- c("REACTOME_FCGR_ACTIVATION", "REACTOME_CHEMOKINE_RECEPTORS_BIND_CHEMOKINES", "REACTOME_IMMUNOREGULATORY_INTERACTIONS_BETWEEN_A_LYMPHOID_AND_A_NON_LYMPHOID_CELL", 
+              "REACTOME_ADORA2B_MEDIATED_ANTI_INFLAMMATORY_CYTOKINES_PRODUCTION", "REACTOME_CD22_MEDIATED_BCR_REGULATION", "REACTOME_INITIAL_TRIGGERING_OF_COMPLEMENT",
+              "REACTOME_ROLE_OF_PHOSPHOLIPIDS_IN_PHAGOCYTOSIS", "REACTOME_O_LINKED_GLYCOSYLATION_OF_MUCINS", "REACTOME_TYPE_1_HEMIDESMOSOME_ASSEMBLY" )
+
+
+
+filtered_formula_res <- formula_res@compareClusterResult[
+  formula_res@compareClusterResult$Description %in% c("REACTOME_FCGR_ACTIVATION", "REACTOME_CHEMOKINE_RECEPTORS_BIND_CHEMOKINES", "REACTOME_IMMUNOREGULATORY_INTERACTIONS_BETWEEN_A_LYMPHOID_AND_A_NON_LYMPHOID_CELL", 
+                                                      "REACTOME_KERATINIZATION", "REACTOME_LAMININ_INTERACTIONS", "REACTOME_INTERFERON_GAMMA_SIGNALING", "REACTOME_CD22_MEDIATED_BCR_REGULATION",  "REACTOME_COMPLEMENT_CASCADE",
+                                                      "REACTOME_ROLE_OF_PHOSPHOLIPIDS_IN_PHAGOCYTOSIS", "REACTOME_TYPE_I_HEMIDESMOSOME_ASSEMBLY"), 
+]
+
+filtered_formula_res
+
+# Create a new compareClusterResult object
+subset_result <- formula_res
+subset_result@compareClusterResult <- filtered_formula_res
+
+# Ensure the new object retains the right structure
+subset_result@compareClusterResult <- droplevels(subset_result@compareClusterResult)
+
+
+## drop "Reactome" from Description character string
+subset_result2 <- subset_result@compareClusterResult
+# Remove the "REACTOME_" prefix from the "Description" column
+subset_result2$Description <- sub("^REACTOME_", "", subset_result2$Description)
+# Update the gseaResult object with the modified results
+subset_result@compareClusterResult <- subset_result2 
+
+##Dotplot
+
+
+Figure1C <- dotplot(subset_result, showCategory = 30, font.size = 6, label_format = 35) + facet_grid(.~.sign) +
+  theme(axis.text.x=element_text(size=12, color = "black")) + 
+  theme(axis.title.x=element_blank()) +
+  theme(axis.text.y=element_text(size=12, color = "black")) +
+  theme(axis.text.x = element_text(angle = 40, hjust = 1)) +
+  #scale_y_discrete(labels = scales::label_wrap(10)) +
+  theme(panel.border = element_rect(color = "black", size = 1, fill = NA)) + # adjust size for border thickness
+  scale_fill_gradientn(colors = c("navy", "dodgerblue", "azure1"),     # Customize color range
+                       name = "p.adjust",                       # Legend title
+                       limits = c(0, 0.05),             # Adjust to fit your p-value range
+                       breaks = c(0.04, 0.03, 0.02, 0.01),            # Ensure breaks and labels match
+                       labels = c("0.04", "0.03", "0.02", "0.01")) +
+  guides(fill = guide_colorbar(reverse = TRUE)) +  # Reverse legend order + 
+  theme(legend.position = "right")
+
+Figure1C 
+ggsave("Figure1C.pdf", plot = Figure1C, width = 12.777326, height = 11.019568, units = "cm", 
+       device = "pdf", dpi = 1200, scale = 1.6)
+dev.off()
+
+
+####now for GO-BP pathways
+
+c5t2g <- msigdbr(species = "human", category = "C5", subcategory = "GO:BP") %>%
+  dplyr::select(gs_name, ensembl_gene)
+head(c2t2g)
+
+formula_BP <- compareCluster(geneClusters=cp.input.gsea, 
+                              fun="GSEA",
+                              eps = 0,
+                              TERM2GENE= c5t2g,
+                              pvalueCutoff = 0.05,
+                              pAdjustMethod = "BH", 
+                              minGSSize = 10, 
+                              maxGSSize = 1500)
+
+
+dotplot(formula_BP, showCategory = 10, font.size = 6) + facet_grid(.~.sign)
+
+filtered_formula_BP <- formula_BP@compareClusterResult[
+  formula_BP@compareClusterResult$Description %in% c("GOBP_T_CELL_MIGRATION", "GOBP_B_CELL_RECEPTOR_SIGNALING_PATHWAY",  
+                                                      "GOBP_RESPONSE_TO_TYPE_I_INTERFERON", 
+                                                      "GOBP_REGULATION_OF_LYMPHOCYTE_CHEMOTAXIS","GOBP_POSITIVE_REGULATION_OF_MYELOID_LEUKOCYTE_DIFFERENTIATION",
+                                                      "GOBP_INTERFERON_GAMMA_PRODUCTION", "GOBP_EPIDERMAL_CELL_DIFFERENTIATION" , 
+                                                      "GOBP_POTASSIUM_ION_HOMEOSTASIS","GOBP_KERATINIZATION", "GOBP_ADAPTIVE_IMMUNE_RESPONSE"
+                                                      ), 
+]
+
+filtered_formula_BP
+
+# Create a new compareClusterResult object
+subset_result_BP <-formula_BP
+subset_result_BP@compareClusterResult <- filtered_formula_BP
+
+# Ensure the new object retains the right structure
+subset_result_BP@compareClusterResult <- droplevels(subset_result_BP@compareClusterResult)
+
+
+dotplot(subset_result_BP, showCategory = 20, font.size = 6) + facet_grid(.~.sign)
+
+
+## drop "Reactome" from Description character string
+subset_result_BP2 <- subset_result_BP@compareClusterResult
+# Remove the "REACTOME_" prefix from the "Description" column
+subset_result_BP2$Description <- sub("^GOBP_", "", subset_result_BP2$Description)
+# Update the gseaResult object with the modified results
+subset_result_BP@compareClusterResult <- subset_result_BP2 
+
+Figure1D <- dotplot(subset_result_BP, showCategory = 30, font.size = 6, label_format = 35) + facet_grid(.~.sign) +
+  theme(axis.text.x=element_text(size=12, color = "black")) + 
+  theme(axis.title.x=element_blank()) +
+  theme(axis.text.y=element_text(size=12, color = "black")) +
+  theme(axis.text.x = element_text(angle = 40, hjust = 1)) +
+  #scale_y_discrete(labels = scales::label_wrap(10)) +
+  theme(panel.border = element_rect(color = "black", size = 1, fill = NA)) + # adjust size for border thickness
+  scale_fill_gradientn(colors = c("navy", "dodgerblue", "azure1"),     # Customize color range
+                       name = "p.adjust",                       # Legend title
+                       limits = c(0, 0.05),             # Adjust to fit your p-value range
+                       breaks = c(0.04, 0.03, 0.02, 0.01),            # Ensure breaks and labels match
+                       labels = c("0.04", "0.03", "0.02", "0.01")) +
+  guides(fill = guide_colorbar(reverse = TRUE)) +  # Reverse legend order + 
+  theme(legend.position = "right")
+
+Figure1D 
+ggsave("Figure1D.pdf", plot = Figure1D, width = 12.777326, height = 11.019568, units = "cm", 
+       device = "pdf", dpi = 1200, scale = 1.6)
+dev.off()
+
 
 
 
